@@ -42,6 +42,8 @@ Created 11/5/1995 Heikki Tuuri
 #include "srv0start.h"
 #include "srv0srv.h"
 #include "log.h"
+#include "page_server.h"
+#include "log0log.h"
 
 TRANSACTIONAL_TARGET
 bool buf_pool_t::page_hash_contains(const page_id_t page_id, hash_chain &chain)
@@ -326,6 +328,54 @@ buf_read_page_low(
     thd_wait_begin(thd, THD_WAIT_DISKIO);
     ha_handler_stats *const stats= trx ? trx->active_handler_stats : nullptr;
     const ulonglong start= stats ? mariadb_measure() : 0;
+    
+    /* NEON-STYLE PATCH: Redirect page reads to Page Server if enabled */
+    if (PageServerClient::is_enabled())
+    {
+      lsn_t current_lsn = log_get_lsn();
+      lsn_t page_lsn;
+      *err = PageServerClient::get_page(
+        page_id.space(),
+        page_id.page_no(),
+        current_lsn,
+        dst,
+        len,
+        &page_lsn);
+      
+      if (UNIV_LIKELY(*err == DB_SUCCESS))
+      {
+        /* Page Server read successful - complete page initialization */
+        /* Get the first node from space for read_complete */
+        fil_node_t* node = UT_LIST_GET_FIRST(space->chain);
+        if (node)
+        {
+          *err = bpage->read_complete(*node, recv_sys.recovery_on);
+        }
+        else
+        {
+          *err = DB_ERROR;
+        }
+        if (*err)
+          bpage = nullptr;
+        space->release();
+        
+        if (stats)
+        {
+          stats->pages_read_count++;
+          if (start)
+            stats->pages_read_time += mariadb_measure() - start;
+        }
+        buf_LRU_stat_inc_io();
+        thd_wait_end(thd);
+        return bpage;
+      }
+      /* Page Server read failed - fall back to local I/O */
+      sql_print_information(
+        "InnoDB: Page Server read failed, falling back to local I/O: "
+        "space=%u page=%u", page_id.space(), page_id.page_no());
+    }
+    
+    /* Local I/O path (original code) */
     auto fio= space->io(IORequest(IORequest::READ_SYNC),
                         os_offset_t{page_id.page_no()} * len, len, dst, bpage);
     *err= fio.err;

@@ -146,6 +146,11 @@ my_bool	srv_use_atomic_writes;
 /** innodb_compression_algorithm; used with page compression */
 ulong	innodb_compression_algorithm;
 
+/* Page Server configuration (Neon-style architecture) */
+my_bool	srv_page_server_enabled = FALSE;
+char*	srv_page_server_address = nullptr;
+uint	srv_page_server_port = 8080;
+
 /*------------------------- LOG FILES ------------------------ */
 char*	srv_log_group_home_dir;
 

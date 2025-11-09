@@ -192,6 +192,11 @@ extern my_bool srv_use_atomic_writes;
 /* Compression algorithm*/
 extern ulong innodb_compression_algorithm;
 
+/* Page Server configuration (Neon-style architecture) */
+extern my_bool srv_page_server_enabled;
+extern char* srv_page_server_address;
+extern uint srv_page_server_port;
+
 /** TRUE if the server was successfully started */
 extern bool	srv_was_started;
 

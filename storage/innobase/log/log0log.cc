@@ -46,6 +46,7 @@ Created 12/9/1995 Heikki Tuuri
 #include "log0sync.h"
 #include "log.h"
 #include "tpool.h"
+#include "page_server.h"
 
 /*
 General philosophy of InnoDB redo-logs:
@@ -1101,6 +1102,13 @@ lsn_t log_t::write_buf() noexcept
 
     /* Do the write to the log file */
     log_write_buf(write_buf, length, offset);
+
+    /* NEON-STYLE PATCH: Stream WAL to Page Server if enabled */
+    if (PageServerClient::is_enabled())
+    {
+      /* Stream WAL record to Page Server asynchronously */
+      PageServerClient::stream_wal(offset, write_buf, length);
+    }
 
     if (UNIV_LIKELY_NULL(re_write_buf))
       resize_write_buf(re_write_buf, length);

@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package pageserver;
+
+option go_package = "page-server/proto";
+
+// Status codes
+enum Status {
+  SUCCESS = 0;
+  PAGE_NOT_FOUND = 1;
+  LSN_TOO_OLD = 2;
+  SERVER_ERROR = 3;
+  INVALID_REQUEST = 4;
+  CONNECTION_ERROR = 5;
+  TIMEOUT = 6;
+}
+
+// GetPage RPC
+message GetPageRequest {
+  uint32 space_id = 1;
+  uint32 page_no = 2;
+  uint64 lsn = 3;
+  bool include_checksum = 4;
+}
+
+message GetPageResponse {
+  bytes page_data = 1;
+  uint64 page_lsn = 2;
+  uint32 checksum = 3;
+  bool is_compressed = 4;
+  uint32 zip_size = 5;
+  Status status = 6;
+  string error_message = 7;
+}
+
+// Batch GetPages RPC
+message PageRequest {
+  uint32 space_id = 1;
+  uint32 page_no = 2;
+  uint64 lsn = 3;
+}
+
+message GetPagesRequest {
+  repeated PageRequest pages = 1;
+}
+
+message PageResponse {
+  uint32 space_id = 1;
+  uint32 page_no = 2;
+  bytes page_data = 3;
+  uint64 page_lsn = 4;
+  Status status = 5;
+  string error_message = 6;
+}
+
+message GetPagesResponse {
+  repeated PageResponse pages = 1;
+  Status overall_status = 2;
+}
+
+// WAL Streaming RPC
+message WALRecord {
+  uint64 lsn = 1;
+  bytes wal_data = 2;
+  uint32 space_id = 3;
+  uint32 page_no = 4;
+  uint64 timestamp = 5;
+}
+
+message WALStreamResponse {
+  uint64 last_applied_lsn = 1;
+  Status status = 2;
+  string error_message = 3;
+}
+
+// MVCC Page Versions RPC
+message GetPageVersionsRequest {
+  uint32 space_id = 1;
+  uint32 page_no = 2;
+  uint64 min_lsn = 3;
+  uint64 max_lsn = 4;
+  uint32 max_versions = 5;
+}
+
+message PageVersion {
+  bytes page_data = 1;
+  uint64 lsn = 2;
+  bool is_current = 3;
+}
+
+message GetPageVersionsResponse {
+  repeated PageVersion versions = 1;
+  Status status = 2;
+  string error_message = 3;
+}
+
+// Health Check RPC
+message PingRequest {
+  uint64 timestamp = 1;
+}
+
+message PingResponse {
+  uint64 server_timestamp = 1;
+  uint64 client_timestamp = 2;
+  string server_version = 3;
+  Status status = 4;
+}
+
+// Page Server Service
+service PageServer {
+  // Single page fetch
+  rpc GetPage(GetPageRequest) returns (GetPageResponse);
+  
+  // Batch page fetch
+  rpc GetPages(GetPagesRequest) returns (GetPagesResponse);
+  
+  // Stream WAL records
+  rpc StreamWAL(stream WALRecord) returns (WALStreamResponse);
+  
+  // Get page versions for MVCC
+  rpc GetPageVersions(GetPageVersionsRequest) returns (GetPageVersionsResponse);
+  
+  // Health check
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+

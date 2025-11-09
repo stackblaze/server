@@ -89,6 +89,7 @@ Created 2/16/1996 Heikki Tuuri
 #include "ibuf0ibuf.h"
 #include "zlib.h"
 #include "log.h"
+#include "page_server.h"
 
 /** Log sequence number at shutdown */
 lsn_t	srv_shutdown_lsn;
@@ -2029,6 +2030,20 @@ skip_monitors:
 		srv_started_redo = true;
 	}
 
+	/* Initialize Page Server client if enabled */
+	if (srv_page_server_enabled && srv_page_server_address) {
+		char address[256];
+		snprintf(address, sizeof(address), "%s:%u",
+		         srv_page_server_address, srv_page_server_port);
+		if (!PageServerClient::init(address)) {
+			ib::warn() << "Failed to initialize Page Server client, "
+			          << "disabling Page Server mode";
+			srv_page_server_enabled = FALSE;
+		} else {
+			ib::info() << "Page Server client initialized: " << address;
+		}
+	}
+
 	return(DB_SUCCESS);
 }
 
@@ -2190,6 +2205,11 @@ void innodb_shutdown()
 	srv_started_redo = false;
 	srv_was_started = false;
 	srv_start_has_been_called = false;
+	
+	/* Shutdown Page Server client */
+	if (srv_page_server_enabled) {
+		PageServerClient::shutdown();
+	}
 }
 
 /** Get the meta-data filename from the table name for a

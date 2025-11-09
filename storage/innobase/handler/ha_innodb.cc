@@ -19092,6 +19092,22 @@ static MYSQL_SYSVAR_BOOL(use_atomic_writes, srv_use_atomic_writes,
   "on devices that supports atomic writes",
   NULL, NULL, TRUE);
 
+/* Page Server configuration (Neon-style architecture) */
+static MYSQL_SYSVAR_BOOL(page_server_enabled, srv_page_server_enabled,
+  PLUGIN_VAR_OPCMDARG,
+  "Enable Neon-style Page Server (redirects page I/O to remote server)",
+  NULL, NULL, FALSE);
+
+static MYSQL_SYSVAR_STR(page_server_address, srv_page_server_address,
+  PLUGIN_VAR_RQCMDARG,
+  "Page Server address (hostname:port, e.g., localhost:8080)",
+  NULL, NULL, NULL);
+
+static MYSQL_SYSVAR_UINT(page_server_port, srv_page_server_port,
+  PLUGIN_VAR_RQCMDARG,
+  "Page Server port",
+  NULL, NULL, 8080, 1, 65535, 0);
+
 static MYSQL_SYSVAR_BOOL(stats_include_delete_marked,
   srv_stats_include_delete_marked,
   PLUGIN_VAR_OPCMDARG,
@@ -20001,6 +20017,9 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(doublewrite),
   MYSQL_SYSVAR(stats_include_delete_marked),
   MYSQL_SYSVAR(use_atomic_writes),
+  MYSQL_SYSVAR(page_server_enabled),
+  MYSQL_SYSVAR(page_server_address),
+  MYSQL_SYSVAR(page_server_port),
   MYSQL_SYSVAR(fast_shutdown),
   MYSQL_SYSVAR(read_io_threads),
   MYSQL_SYSVAR(write_io_threads),
